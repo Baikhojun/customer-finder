@@ -83,7 +83,41 @@
       `🎉 ${game.nickname}님의 고객 발견이 갤러리에 저장됐어요!`;
     const box = document.getElementById("finish-insight");
     if (box) box.innerHTML = buildInsightHtml(state, sentence, completeness);
+
+    // 페르소나 시트 자동 렌더
+    if (window.Persona) {
+      window.Persona.renderInto(document.getElementById("finish-persona"), snapshot);
+    }
+    // 5 Why 결과 요약 (있으면)
+    renderFiveWhySummary(state);
+
     document.getElementById("finish-modal").classList.remove("hidden");
+  }
+
+  function renderFiveWhySummary(state) {
+    const wrap = document.getElementById("finish-fivewhy");
+    if (!wrap) return;
+    const notes = window.FiveWhy ? window.FiveWhy.getAllNotes() : [];
+    if (notes.length === 0) {
+      wrap.innerHTML = "";
+      return;
+    }
+    const items = notes.map((n) => {
+      const pain = state.pain.find((p) => p.id === n.painId);
+      const painLabel = pain ? `${pain.icon} ${pain.label}` : "(삭제된 카드)";
+      const root = n.answers[4] || n.answers.filter((a) => a.trim()).slice(-1)[0] || "";
+      return `
+        <div class="fwsum-item">
+          <div class="fwsum-pain">🔥 ${escapeHtml(painLabel)}</div>
+          <div>5번 "왜?"를 자문한 결과:</div>
+          <div class="fwsum-root">${escapeHtml(root)}</div>
+        </div>`;
+    }).join("");
+    wrap.innerHTML = `
+      <div class="fivewhy-wrap-inner">
+        <h4>🔥 5 Why로 발견한 근본 원인</h4>
+        ${items}
+      </div>`;
   }
 
   function computeCompleteness(state) {
@@ -183,9 +217,10 @@
     document.getElementById("clear-btn").addEventListener("click", () => {
       const c = window.Slots.counts();
       if (c.total === 0) return;
-      if (confirm("슬롯의 모든 카드를 비울까요?")) {
+      if (confirm("슬롯의 모든 카드를 비울까요? (5 Why 기록도 함께 초기화됩니다.)")) {
         window.Slots.clearAll();
         if (window.Sentence) window.Sentence.resetCustom();
+        if (window.FiveWhy) window.FiveWhy.clear();
       }
     });
     document.getElementById("finish-btn").addEventListener("click", finishWork);
@@ -232,6 +267,7 @@
     if (window.Timer)    window.Timer.init();
     if (window.Gallery)  window.Gallery.init();
     if (window.Stats)    window.Stats.refresh();
+    if (window.FiveWhy)  window.FiveWhy.init();
     bindStartScreen();
     bindHeader();
     bindFinishModal();
